@@ -76,9 +76,13 @@ class XBotLFreeEnv(LeggedRobot):
     '''
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
+        # 参数含义不明
         self.last_feet_z = 0.05
+        # 脚部的高度
         self.feet_height = torch.zeros((self.num_envs, 2), device=self.device)
+        # 环境重置
         self.reset_idx(torch.tensor(range(self.num_envs), device=self.device))
+        # 计算观测
         self.compute_observations()
 
     def _push_robots(self):
@@ -198,8 +202,9 @@ class XBotLFreeEnv(LeggedRobot):
 
 
     def compute_observations(self):
-
+        # 获取相位
         phase = self._get_phase()
+        # 计算参考状态
         self.compute_ref_state()
 
         sin_pos = torch.sin(2 * torch.pi * phase).unsqueeze(1)
@@ -538,3 +543,4 @@ class XBotLFreeEnv(LeggedRobot):
             self.actions + self.last_last_actions - 2 * self.last_actions), dim=1)
         term_3 = 0.05 * torch.sum(torch.abs(self.actions), dim=1)
         return term_1 + term_2 + term_3
+
