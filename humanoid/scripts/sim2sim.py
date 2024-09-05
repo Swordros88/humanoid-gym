@@ -101,6 +101,13 @@ def run_mujoco(policy, cfg):
     mujoco.mj_step(model, data)
     viewer = mujoco_viewer.MujocoViewer(model, data)
 
+    # save track
+    left_foot_positions = []
+    right_foot_positions = []
+    # record left and right foot endpoint position
+    left_foot_joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, 'foot_l')
+    right_foot_joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, 'foot_r')
+
     target_q = np.zeros((cfg.env.num_actions), dtype=np.double)
     action = np.zeros((cfg.env.num_actions), dtype=np.double)
 
@@ -164,6 +171,18 @@ def run_mujoco(policy, cfg):
         data.ctrl = tau
 
         mujoco.mj_step(model, data)
+
+        # get left foot and right foot world position
+        left_foot_pos = data.geom_xpos[model.geom_name2id('left_foot_geom')]
+        right_foot_pos = data.geom_xpos[model.geom_name2id('right_foot_geom')]
+
+        # save track
+        left_foot_positions.append(np.copy(left_foot_pos))
+        right_foot_positions.append(np.copy(right_foot_pos))
+        # plot track
+        viewer.add_marker(pos=left_foot_pos, label="", size=[0.01, 0.01, 0.01], rgba=[1, 0, 0, 1])  # 红色标记左脚
+        viewer.add_marker(pos=right_foot_pos, label="", size=[0.01, 0.01, 0.01], rgba=[0, 0, 1, 1])  # 蓝色标记右脚
+        
         viewer.render()
         count_lowlevel += 1
 
