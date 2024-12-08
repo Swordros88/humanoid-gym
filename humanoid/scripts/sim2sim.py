@@ -40,7 +40,7 @@ import torch
 
 
 class cmd:
-    vx = 0.4
+    vx = 1.5
     vy = 0.0
     dyaw = 0.0
 
@@ -124,22 +124,16 @@ def run_mujoco(policy, cfg):
             obs = np.zeros([1, cfg.env.num_single_obs], dtype=np.float32)
             eu_ang = quaternion_to_euler_array(quat)
             eu_ang[eu_ang > math.pi] -= 2 * math.pi
-            #clock input sin cos 
+
             obs[0, 0] = math.sin(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / 0.64)
             obs[0, 1] = math.cos(2 * math.pi * count_lowlevel * cfg.sim_config.dt  / 0.64)
-            # command x,y,yaw
             obs[0, 2] = cmd.vx * cfg.normalization.obs_scales.lin_vel
             obs[0, 3] = cmd.vy * cfg.normalization.obs_scales.lin_vel
             obs[0, 4] = cmd.dyaw * cfg.normalization.obs_scales.ang_vel
-            # joint position 12-D
             obs[0, 5:17] = q * cfg.normalization.obs_scales.dof_pos
-            # jiont velocity 12-D
             obs[0, 17:29] = dq * cfg.normalization.obs_scales.dof_vel
-            # last Actions
             obs[0, 29:41] = action
-            # Anglar Veolcity
             obs[0, 41:44] = omega
-            # euler angle
             obs[0, 44:47] = eu_ang
 
             obs = np.clip(obs, -cfg.normalization.clip_observations, cfg.normalization.clip_observations)
@@ -150,6 +144,7 @@ def run_mujoco(policy, cfg):
             policy_input = np.zeros([1, cfg.env.num_observations], dtype=np.float32)
             for i in range(cfg.env.frame_stack):
                 policy_input[0, i * cfg.env.num_single_obs : (i + 1) * cfg.env.num_single_obs] = hist_obs[i][0, :]
+            # action = policy(policy_input.detach())
             action[:] = policy(torch.tensor(policy_input))[0].detach().numpy()
             action = np.clip(action, -cfg.normalization.clip_actions, cfg.normalization.clip_actions)
 
@@ -191,8 +186,8 @@ if __name__ == '__main__':
             decimation = 10
 
         class robot_config:
-            kps = np.array([200, 200, 350, 350, 15, 15, 200, 200, 350, 350, 15, 15], dtype=np.double)
-            kds = np.array([10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10], dtype=np.double)
+            kps = np.array([200, 400, 200, 350, 15, 15, 200, 400, 200, 350, 15, 15], dtype=np.double)
+            kds = np.array([1, 10, 0.5, 10, 1, 1, 1, 10, 0.5, 10, 1, 1], dtype=np.double)
             tau_limit = 200. * np.ones(12, dtype=np.double)
 
     policy = torch.jit.load(args.load_model)

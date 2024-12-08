@@ -120,7 +120,7 @@ class LoongCfg(LeggedRobotCfg):
         stiffness = {'hip_roll': 200.0, 'hip_pitch': 350.0, 'hip_yaw': 200.0,
                      'knee': 350.0, 'ankle_roll': 15,'ankle_pitch': 15}
         damping = {'hip_roll': 10, 'hip_pitch': 10, 'hip_yaw':
-                   10, 'knee': 10, 'ankle_roll': 10,'ankle_pitch': 10}
+                   10, 'knee': 10, 'ankle_roll': 1,'ankle_pitch': 10}
 
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
@@ -164,18 +164,18 @@ class LoongCfg(LeggedRobotCfg):
         heading_command = True  # if true: compute ang vel command from heading error
 
         class ranges:
-            lin_vel_x = [-0.3, 0.6]  # min max [m/s]
+            lin_vel_x = [-0.3, 2.6]  # min max [m/s]
             lin_vel_y = [-0.3, 0.3]   # min max [m/s]
             ang_vel_yaw = [-0.3, 0.3]    # min max [rad/s]
             heading = [-3.14, 3.14]
 
     class rewards:
         base_height_target = 1.09
-        min_dist = 0.2
+        min_dist = 0.3
         max_dist = 0.5
         # put some settings here for LLM parameter tuning
         target_joint_pos_scale = 0.17    # rad
-        target_feet_height = 0.06       # m
+        target_feet_height = 0.3       # m
         cycle_time = 0.64                # sec
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
@@ -185,24 +185,26 @@ class LoongCfg(LeggedRobotCfg):
 
         class scales:
             # reference motion tracking
-            joint_pos = 1.6
+            joint_pos = 0.6
             feet_clearance = 1.
-            feet_contact_number = 1.2
+            feet_contact_number = 2.2
+            ankle_regularization = 2.2
             # gait
-            feet_air_time = 1.
-            foot_slip = -0.05
-            feet_distance = 0.2
-            knee_distance = 0.2
+            feet_air_time = 20.
+            foot_slip = -1.5
+            feet_distance = 3
+            knee_distance = 3
             # contact
             feet_contact_forces = -0.01
             # vel tracking
-            tracking_lin_vel = 1.2
-            tracking_ang_vel = 1.1
-            vel_mismatch_exp = 0.5  # lin_z; ang x,y
+            tracking_lin_vel = 1.0
+            tracking_ang_vel = 0.2
+            vel_mismatch_exp = 0.8  # lin_z; ang x,y
             low_speed = 0.2
             track_vel_hard = 0.5
             # base pos
-            default_joint_pos = 0.5
+            default_joint_pos = 0.2
+            ankle_roll_pos = 0.3
             orientation = 1.
             base_height = 0.2
             base_acc = 0.2

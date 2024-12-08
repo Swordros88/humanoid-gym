@@ -137,7 +137,7 @@ class LoongFreeEnv(LeggedRobot):
         # self.ref_dof_pos[:, 8] = sin_pos_r * scale_1
         # self.ref_dof_pos[:, 9] = sin_pos_r * scale_2
         # self.ref_dof_pos[:, 10] = sin_pos_r * scale_1
-        self.ref_dof_pos[:, 8] = sin_pos_r * scale_1
+        self.ref_dof_pos[:, 8] = sin_pos_r * scale_1# 
         self.ref_dof_pos[:, 9] = -sin_pos_r * scale_2
         self.ref_dof_pos[:, 10] = sin_pos_r * scale_1
         # Double support phase
@@ -275,8 +275,6 @@ class LoongFreeEnv(LeggedRobot):
     def _reward_joint_pos(self):
         """
         Calculates the reward based on the difference between the current joint positions and the target joint positions.
-        r=exp(−2∥d∥)−0.2⋅min(∥d∥,0.5)
-
         """
         joint_pos = self.dof_pos.clone()
         pos_target = self.ref_dof_pos.clone()
@@ -287,7 +285,6 @@ class LoongFreeEnv(LeggedRobot):
     def _reward_feet_distance(self):
         """
         Calculates the reward based on the distance between the feet. Penalize feet get close to each other or too far away.
-        
         """
         foot_pos = self.rigid_state[:, self.feet_indices, :2]
         foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
@@ -345,8 +342,13 @@ class LoongFreeEnv(LeggedRobot):
         Rewards or penalizes depending on whether the foot contact matches the expected gait phase.
         """
         contact = self.contact_forces[:, self.feet_indices, 2] > 5.
-        stance_mask = self._get_gait_phase()
-        reward = torch.where(contact == stance_mask, 1, -0.3)
+        stance_mask = self._get_gait_phase()  # 确保这是张量
+        if not isinstance(stance_mask, torch.Tensor):
+            stance_mask = torch.tensor(stance_mask, device=contact.device, dtype=torch.bool)
+
+        # 将1和-0.3转换为张量，并确保它们与contact具有相同的类型
+        reward = torch.where(contact == stance_mask, torch.tensor(1., device=contact.device), torch.tensor(-0.3, device=contact.device))
+        
         return torch.mean(reward, dim=1)
 
     def _reward_orientation(self):
@@ -376,6 +378,18 @@ class LoongFreeEnv(LeggedRobot):
         yaw_roll = torch.norm(left_yaw_roll, dim=1) + torch.norm(right_yaw_roll, dim=1)
         yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
         return torch.exp(-yaw_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
+    
+    def _reward_ankle_roll_pos(self):
+        """
+        Calculates the reward for keeping joint positions close to default positions, with a focus 
+        on penalizing deviation in yaw and roll directions. Excludes yaw and roll from the main penalty.
+        """
+        joint_diff = self.dof_pos - self.default_joint_pd_target
+        left_ankle_roll = joint_diff[:, 5]
+        right_ankle_roll = joint_diff[:, 11]
+        ankle_roll = torch.abs(left_ankle_roll) + torch.abs(right_ankle_roll)
+        ankle_roll = torch.clamp(ankle_roll - 0.1, 0, 50)
+        return torch.exp(-ankle_roll * 100) - 0.01 * torch.norm(joint_diff, dim=1)
 
     def _reward_base_height(self):
         """
@@ -544,3 +558,21 @@ class LoongFreeEnv(LeggedRobot):
             self.actions + self.last_last_actions - 2 * self.last_actions), dim=1)
         term_3 = 0.05 * torch.sum(torch.abs(self.actions), dim=1)
         return term_1 + term_2 + term_3
+
+    def sqrdexp(self, x):
+        """ shorthand helper for squared exponential
+        """
+        return torch.exp(-torch.square(x)/self.cfg.rewards.tracking_sigma)
+
+    def _reward_ankle_regularization(self):
+        # Ankle joint regularization around 0
+        error = 0
+        error += self.sqrdexp(
+            (2.5*self.dof_pos[:, 5]) / self.cfg.normalization.obs_scales.dof_pos)
+        error += self.sqrdexp(
+            (2.5*self.dof_pos[:, 11]) / self.cfg.normalization.obs_scales.dof_pos)
+        error += self.sqrdexp(
+            (self.dof_pos[:, 4]-self.cfg.init_state.default_joint_angles['l_ankle_pitch']) / self.cfg.normalization.obs_scales.dof_pos)
+        error += self.sqrdexp(
+            (self.dof_pos[:, 10]-self.cfg.init_state.default_joint_angles['r_ankle_pitch']) / self.cfg.normalization.obs_scales.dof_pos)
+        return error / 4.
